@@ -1,3 +1,338 @@
+// Supabase bağlantısı
+const SUPABASE_URL = "https://cjvaxbpmqsysurfvivyy.supabase.co/rest/v1/";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_mvLkF_d5wm4jLwcawNJ3JQ_FJ8au4m2";
+
+const supabase = window.supabase.createClient(
+  // Sayfadaki alanlar
+const girisAlani = document.getElementById("giris-alani");
+const uygulamaAlani = document.getElementById("uygulama-alani");
+
+const girisFormu = document.getElementById("giris-formu");
+const epostaAlani = document.getElementById("eposta");
+const sifreAlani = document.getElementById("sifre");
+const kayitButonu = document.getElementById("kayit-butonu");
+const girisMesaji = document.getElementById("giris-mesaji");
+
+const form = document.getElementById("gorev-formu");
+const gorevGirisi = document.getElementById("gorev-girisi");
+const tarihGirisi = document.getElementById("tarih-girisi");
+const liste = document.getElementById("gorev-listesi");
+const bilgi = document.getElementById("bilgi");
+const yaklasanIcerik = document.getElementById("yaklasan-icerik");
+
+let gorevler = [];
+let kullanici = null;
+
+// Çıkış düğmesini oluştur
+const cikisButonu = document.createElement("button");
+cikisButonu.type = "button";
+cikisButonu.textContent = "Çıkış Yap";
+cikisButonu.id = "cikis-butonu";
+cikisButonu.hidden = true;
+girisAlani.appendChild(cikisButonu);
+
+// Giriş yapılmadan görevleri gösterme
+uygulamaAlani.hidden = true;
+
+// Tarih yardımcıları
+function bugunuAl() {
+  const bugun = new Date();
+  const yil = bugun.getFullYear();
+  const ay = String(bugun.getMonth() + 1).padStart(2, "0");
+  const gun = String(bugun.getDate()).padStart(2, "0");
+  return `${yil}-${ay}-${gun}`;
+}
+
+function tarihiGuzelYaz(tarih) {
+  if (!tarih) return "";
+  const parcalar = tarih.split("-");
+  return `${parcalar[2]}.${parcalar[1]}.${parcalar[0]}`;
+}
+
+function gunFarki(tarih) {
+  const bugun = new Date(`${bugunuAl()}T00:00:00`);
+  const hedef = new Date(`${tarih}T00:00:00`);
+  return Math.round((hedef - bugun) / 86400000);
+}
+
+function siraliGorevler() {
+  return [...gorevler].sort((a, b) => {
+    if (a.tarih && b.tarih) {
+      const fark = a.tarih.localeCompare(b.tarih);
+      if (fark !== 0) return fark;
+    } else if (a.tarih) {
+      return -1;
+    } else if (b.tarih) {
+      return 1;
+    }
+
+    return (a.olusturma || "").localeCompare(b.olusturma || "");
+  });
+}
+
+// Görevleri buluttan yükle
+async function gorevleriYukle() {
+  if (!kullanici) return;
+
+  bilgi.textContent = "Görevler yükleniyor...";
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    bilgi.textContent = "Görevler yüklenemedi: " + error.message;
+    return;
+  }
+
+  gorevler = data.map((satir) => ({
+    id: satir.id,
+    metin: satir.title,
+    tarih: satir.due_date || "",
+    tamamlandi: satir.completed,
+    olusturma: satir.created_at
+  }));
+
+  ekranaCiz();
+}
+
+// Yaklaşan görevleri çiz
+function yaklasanlariCiz() {
+  yaklasanIcerik.replaceChildren();
+
+  const yaklasanlar = siraliGorevler().filter((gorev) => {
+    if (!gorev.tarih || gorev.tamamlandi) return false;
+    const fark = gunFarki(gorev.tarih);
+    return fark <= 7;
+  });
+
+  if (yaklasanlar.length === 0) {
+    yaklasanIcerik.textContent = "Yaklaşan görev yok.";
+    return;
+  }
+
+  yaklasanlar.forEach((gorev) => {
+    const satir = document.createElement("p");
+    const fark = gunFarki(gorev.tarih);
+
+    let zaman = tarihiGuzelYaz(gorev.tarih);
+    if (fark < 0) zaman += " — Gecikmiş";
+    else if (fark === 0) zaman += " — Bugün";
+    else if (fark === 1) zaman += " — Yarın";
+
+    satir.textContent = `${gorev.metin} — ${zaman}`;
+    yaklasanIcerik.appendChild(satir);
+  });
+}
+
+// Tüm görevleri çiz
+function listeyiCiz() {
+  liste.replaceChildren();
+
+  siraliGorevler().forEach((gorev) => {
+    const satir = document.createElement("li");
+    const kutu = document.createElement("input");
+    kutu.type = "checkbox";
+    kutu.checked = gorev.tamamlandi;
+    kutu.setAttribute("aria-label", `${gorev.metin} tamamlandı`);
+
+    const metin = document.createElement("span");
+    metin.textContent = gorev.metin;
+
+    if (gorev.tamamlandi) {
+      metin.style.textDecoration = "line-through";
+    }
+
+    satir.appendChild(kutu);
+    satir.appendChild(metin);
+
+    if (gorev.tarih) {
+      const tarih = document.createElement("small");
+      tarih.textContent = " " + tarihiGuzelYaz(gorev.tarih);
+      satir.appendChild(tarih);
+    }
+
+    const silButonu = document.createElement("button");
+    silButonu.type = "button";
+    silButonu.textContent = "Sil";
+    silButonu.setAttribute("aria-label", `${gorev.metin} görevini sil`);
+
+    kutu.addEventListener("change", async () => {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ completed: kutu.checked })
+        .eq("id", gorev.id)
+        .eq("user_id", kullanici.id);
+
+      if (error) {
+        alert("Görev güncellenemedi: " + error.message);
+        await gorevleriYukle();
+        return;
+      }
+
+      gorev.tamamlandi = kutu.checked;
+      ekranaCiz();
+    });
+
+    silButonu.addEventListener("click", async () => {
+      if (!confirm("Bu görevi silmek istiyor musun?")) return;
+
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .eq("id", gorev.id)
+        .eq("user_id", kullanici.id);
+
+      if (error) {
+        alert("Görev silinemedi: " + error.message);
+        return;
+      }
+
+      gorevler = gorevler.filter((g) => g.id !== gorev.id);
+      ekranaCiz();
+    });
+
+    satir.appendChild(silButonu);
+    liste.appendChild(satir);
+  });
+}
+
+function ekranaCiz() {
+  listeyiCiz();
+  yaklasanlariCiz();
+
+  const kalan = gorevler.filter((g) => !g.tamamlandi).length;
+  bilgi.textContent = `Tamamlanmamış görev: ${kalan}`;
+}
+
+// Yeni görevi buluta ekle
+form.addEventListener("submit", async (olay) => {
+  olay.preventDefault();
+
+  if (!kullanici) return;
+
+  const metin = gorevGirisi.value.trim();
+  if (!metin) return;
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert({
+      user_id: kullanici.id,
+      title: metin,
+      due_date: tarihGirisi.value || null
+    })
+    .select()
+    .single();
+
+  if (error) {
+    alert("Görev kaydedilemedi: " + error.message);
+    return;
+  }
+
+  gorevler.push({
+    id: data.id,
+    metin: data.title,
+    tarih: data.due_date || "",
+    tamamlandi: data.completed,
+    olusturma: data.created_at
+  });
+
+  form.reset();
+  ekranaCiz();
+  gorevGirisi.focus();
+});
+
+// E-posta ve şifre ile giriş
+girisFormu.addEventListener("submit", async (olay) => {
+  olay.preventDefault();
+  girisMesaji.textContent = "Giriş yapılıyor...";
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: epostaAlani.value.trim(),
+    password: sifreAlani.value
+  });
+
+  if (error) {
+    girisMesaji.textContent = "Giriş yapılamadı: " + error.message;
+  }
+});
+
+// Yeni hesap oluştur
+kayitButonu.addEventListener("click", async () => {
+  const eposta = epostaAlani.value.trim();
+  const sifre = sifreAlani.value;
+
+  if (!eposta || !sifre) {
+    girisMesaji.textContent = "Lütfen e-posta ve şifreni yaz.";
+    return;
+  }
+
+  girisMesaji.textContent = "Hesap oluşturuluyor...";
+
+  const { data, error } = await supabase.auth.signUp({
+    email: eposta,
+    password: sifre
+  });
+
+  if (error) {
+    girisMesaji.textContent = "Kayıt yapılamadı: " + error.message;
+    return;
+  }
+
+  girisMesaji.textContent = data.session
+    ? "Hesabın oluşturuldu!"
+    : "Kayıt başarılı. E-postana gelen doğrulama bağlantısına tıkla.";
+});
+
+// Çıkış yap
+cikisButonu.addEventListener("click", async () => {
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    girisMesaji.textContent = "Çıkış yapılamadı: " + error.message;
+  }
+});
+
+// Giriş durumuna göre ekranı yönet
+async function oturumuUygula(oturum) {
+  kullanici = oturum?.user || null;
+
+  if (!kullanici) {
+    gorevler = [];
+    uygulamaAlani.hidden = true;
+    girisAlani.hidden = false;
+    cikisButonu.hidden = true;
+    liste.replaceChildren();
+    yaklasanIcerik.replaceChildren();
+    bilgi.textContent = "";
+    return;
+  }
+
+  girisAlani.hidden = false;
+  uygulamaAlani.hidden = false;
+  cikisButonu.hidden = false;
+  girisMesaji.textContent = "Giriş yapıldı.";
+
+  await gorevleriYukle();
+}
+
+// Daha önce giriş yapılmışsa oturumu geri yükle
+supabase.auth.onAuthStateChange((_olay, oturum) => {
+  setTimeout(() => {
+    oturumuUygula(oturum);
+  }, 0);
+});
+
+supabase.auth.getSession().then(({ data, error }) => {
+  if (error) {
+    girisMesaji.textContent = "Oturum kontrol edilemedi.";
+    return;
+  }
+
+  oturumuUygula(data.session);
+});
+);
 // Sayfadaki öğeleri seçiyoruz
 const form = document.getElementById("gorev-formu");
 const giris = document.getElementById("gorev-girisi");
@@ -273,6 +608,44 @@ form.addEventListener("submit", function (olay) {
   kaydet();
   ekranaCiz();
   giris.focus();
+});
+// Giriş ve kayıt alanları
+const girisFormu = document.getElementById("giris-formu");
+const epostaAlani = document.getElementById("eposta");
+const sifreAlani = document.getElementById("sifre");
+const kayitButonu = document.getElementById("kayit-butonu");
+const girisMesaji = document.getElementById("giris-mesaji");
+
+girisFormu.addEventListener("submit", async function (olay) {
+  olay.preventDefault();
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: epostaAlani.value.trim(),
+    password: sifreAlani.value
+  });
+
+  if (error) {
+    girisMesaji.textContent = "Giriş yapılamadı: " + error.message;
+    return;
+  }
+
+  girisMesaji.textContent = "Giriş başarılı!";
+});
+
+kayitButonu.addEventListener("click", async function () {
+  const { data, error } = await supabase.auth.signUp({
+    email: epostaAlani.value.trim(),
+    password: sifreAlani.value
+  });
+
+  if (error) {
+    girisMesaji.textContent = "Kayıt yapılamadı: " + error.message;
+    return;
+  }
+
+  girisMesaji.textContent = data.session
+    ? "Hesabın oluşturuldu!"
+    : "Hesabın oluşturuldu. E-postanı kontrol edip adresini doğrula.";
 });
 
 // Sayfa ilk açıldığında listeyi çiz
