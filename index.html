@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yapılacaklar Listesi</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="kart">
+    <header class="baslik">
+      <h1>Yapılacaklar</h1>
+      <p id="bilgi" class="bilgi"></p>
+    </header>
+
+    <section class="yaklasan" aria-labelledby="yaklasan-baslik">
+      <h2 id="yaklasan-baslik">Yaklaşan Görevler</h2>
+      <div id="yaklasan-icerik"></div>
+    </section>
+
+    <form id="gorev-formu" class="form">
+      <input
+        type="text"
+        id="gorev-girisi"
+        class="metin-kutusu"
+        placeholder="Yeni görev yaz..."
+        autocomplete="off"
+        required
+      >
+
+      <div class="form-alt">
+        <label class="tarih-etiket" for="tarih-girisi">
+          <span>Tarih (isteğe bağlı)</span>
+          <input type="date" id="tarih-girisi" class="tarih-kutusu">
+        </label>
+
+        <button type="submit" class="ekle-butonu">Ekle</button>
+      </div>
+    </form>
+
+    <h2 class="liste-baslik">Tüm Görevler</h2>
+    <ul id="gorev-listesi" class="liste"></ul>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
