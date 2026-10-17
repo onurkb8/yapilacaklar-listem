@@ -7,7 +7,34 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="kart">
+    <section id="giris-alani" class="kart">
+  <h2>Yapılacaklar Listem</h2>
+  <p>Görevlerini cihazların arasında eşitlemek için giriş yap.</p>
+
+  <form id="giris-formu">
+    <input
+      type="email"
+      id="eposta"
+      placeholder="E-posta adresin"
+      autocomplete="email"
+      required
+    >
+
+    <input
+      type="password"
+      id="sifre"
+      placeholder="Şifren"
+      autocomplete="current-password"
+      required
+    >
+
+    <button type="submit">Giriş Yap</button>
+    <button type="button" id="kayit-butonu">Yeni Hesap Oluştur</button>
+  </form>
+
+  <p id="giris-mesaji"></p>
+</section>
+  <main id="uygulama-alani" class="kart">
     <header class="baslik">
       <h1>Yapılacaklar</h1>
       <p id="bilgi" class="bilgi"></p>
@@ -42,6 +69,7 @@
     <ul id="gorev-listesi" class="liste"></ul>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
 </body>
 </html>
